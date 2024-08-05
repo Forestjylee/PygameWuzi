@@ -5,7 +5,7 @@ from collections import namedtuple
 from collections import deque
 import random
 
-GRID_LINE_COLOR = (0, 0, 0)   # 棋盘格子线颜色
+GRID_LINE_COLOR = (0, 0, 0)  # 棋盘格子线颜色
 
 FPS = 20
 SCREEN_SIZE = 610, 650
@@ -19,6 +19,13 @@ class CompareResult(Enum):
     WIN = 0
     EQUAL = 1
     LOSE = 2
+
+
+class GameResult(Enum):
+    BLUE_WIN = 0
+    RED_WIN = 1
+    DRAW = 2
+    NOT_OVER = 3
 
 
 class Doushou:
@@ -220,7 +227,7 @@ class Doushou:
         turn_text = font_obj.render(
             f"现在是 <{'蓝' if self.blue_turn else '红'}> 方回合", True, (0, 0, 0)
         )
-        self._chessboard.blit(turn_text, (self.left//3, self.top//6))
+        self._chessboard.blit(turn_text, (self.left // 3, self.top // 6))
 
     def _init_game(self):
         random_animal_positions = [i for i in self.animal_map.keys()]
@@ -248,7 +255,10 @@ class Doushou:
             return
 
         if self.focus_pos_logic is None:
-            if self.__chess_board_logic[i][j] is not None and self.__is_own_chess(self.__chess_board_logic[i][j]) is True:
+            if (
+                self.__chess_board_logic[i][j] is not None
+                and self.__is_own_chess(self.__chess_board_logic[i][j]) is True
+            ):
                 # 如果之前没有选中，现点击了自己的棋子，则选中自己的棋子
                 self.focus_pos_logic = Position(i, j)
         else:  # 如果之前选中了棋子
@@ -350,6 +360,27 @@ class Doushou:
         else:
             return CompareResult.LOSE
 
+    def check_over(self):
+        blue_chess_amount = 0
+        red_chess_amount = 0
+        for i in range(self.lines):
+            for j in range(self.lines):
+                if self.__chess_board_logic[i][j] is None:
+                    continue
+                if self.animal_map[self.__chess_board_logic[i][j]] < 8:
+                    blue_chess_amount += 1
+                else:
+                    red_chess_amount += 1
+
+        if blue_chess_amount == 0 and red_chess_amount == 0:
+            return GameResult.DRAW
+        elif blue_chess_amount == 0 and red_chess_amount >= 0:
+            return GameResult.RED_WIN
+        elif blue_chess_amount >= 0 and red_chess_amount == 0:
+            return GameResult.BLUE_WIN
+        else:
+            return GameResult.NOT_OVER
+
     def __is_own_chess(self, chess: pygame.Surface) -> bool:
         return (self.blue_turn is True and self.animal_map[chess] < 8) or (
             self.blue_turn is not True and self.animal_map[chess] >= 8
@@ -370,25 +401,47 @@ def main():
 
     while True:
         clock.tick(FPS)  # 设置帧率
+
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                game_over = True
-                break
+                pygame.quit()
+                sys.exit()
             if event.type == pygame.MOUSEBUTTONDOWN and (not game_over):
                 if event.button == 1:  # 按下的是鼠标左键
                     i, j = doushou.get_coord(event.pos)
                     doushou.click_at(i, j)
-                    print(f"现在是 <{'蓝' if doushou.blue_turn else '红'}> 方回合")
-
-        if game_over is True:
-            break
-        doushou.draw_board()
-        doushou.draw_turn_text(font)
-        doushou.draw_chesses()
-        screen.blit(doushou._chessboard, (0, 0))
+                    if doushou.check_over() != GameResult.NOT_OVER:
+                        gameover_text = ""
+                        if doushou.check_over() == GameResult.BLUE_WIN:
+                            gameover_text = "蓝方获胜!"
+                        elif doushou.check_over() == GameResult.RED_WIN:
+                            gameover_text = "红方获胜!"
+                        else:
+                            gameover_text = "平局!"
+                        gameover_text = pygame.font.Font('simhei.ttf', 48).render(gameover_text, True, (255,0,0))
+                        game_over = True
+            if game_over and event.type == pygame.KEYDOWN:
+                game_over = False
+                doushou = Doushou()
+            doushou.draw_board()
+            doushou.draw_turn_text(font)
+            doushou.draw_chesses()
+            if game_over is True:
+                doushou._chessboard.blit(
+                    gameover_text,
+                    (
+                        round(
+                            SCREEN_SIZE[0] / 2
+                            - gameover_text.get_width() / 2
+                        ),
+                        round(
+                            SCREEN_SIZE[1] / 2
+                            - gameover_text.get_height() / 2
+                        ),
+                    ),
+                )
+            screen.blit(doushou._chessboard, (0, 0))
         pygame.display.update()
-    pygame.quit()
-    sys.exit()
 
 
 main()
