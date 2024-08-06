@@ -1,6 +1,9 @@
 import sys
+import json
+import time
 from enum import Enum
 import pygame
+from client import Client
 from collections import namedtuple
 from collections import deque
 import random
@@ -389,12 +392,27 @@ class Doushou:
         )
 
 
+def has_empty_room(rooms):
+    for room in rooms:
+        if room["nb_players"] < room["capacity"]:
+            return True
+    return False
+
+
+def is_my_room_ready(client: Client):
+    rooms = client.get_rooms()
+    for room in rooms:
+        if room["id"] == client.room_id:
+            return room["nb_players"] == room["capacity"]
+
+
 def main():
     pygame.init()
 
     screen = pygame.display.set_mode(SCREEN_SIZE, 0, 32)
     pygame.display.set_caption("斗兽棋")
     font = pygame.font.Font("assets/simhei.ttf", 26)
+    gameover_font = pygame.font.Font("assets/simhei.ttf", 48)
     font.set_bold(True)
     clock = pygame.time.Clock()  # 设置时钟
 
@@ -411,73 +429,153 @@ def main():
     )
     button_color = (205, 136, 75)
 
-    show_start_menu = True
-    game_over = False
-    doushou = Doushou()
-    while True:
-        clock.tick(FPS)  # 设置帧率
+    # 创建用户端对象
+    client1 = Client("127.0.0.1", 12344, 12344, random.randint(1235, 10000))
 
-        if show_start_menu is True:
-            # 绘制按钮
-            pygame.draw.rect(doushou._chessboard, button_color, button_rect, border_radius=10)
-            doushou._chessboard.blit(
-                button_text,
-                (
-                    round(SCREEN_SIZE[0] / 2 - button_text.get_width() / 2),
-                    round(SCREEN_SIZE[1] / 2 - button_text.get_height() / 2),
-                ),
-            )
-            screen.blit(doushou._chessboard, (0, 0))
+    try:
+        is_in_room = False
+        my_turn = True
+        show_start_menu = True
+        game_over = False
+        doushou = Doushou()
+        while True:
+            clock.tick(FPS)  # 设置帧率
 
-            # 监听事件
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    pygame.quit()
-                    sys.exit()
-                if event.type == pygame.MOUSEBUTTONDOWN:
-                    if button_rect.collidepoint(event.pos):
-                        # 在这里执行按钮点击后的操作
-                        show_start_menu = False
-                        game_over = False
-                        doushou = Doushou()
-        else:
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    pygame.quit()
-                    sys.exit()
-                if not game_over and event.type == pygame.MOUSEBUTTONDOWN:
-                    if event.button == 1:  # 按下的是鼠标左键
-                        i, j = doushou.get_coord(event.pos)
-                        doushou.click_at(i, j)
-                        if doushou.check_over() != GameResult.NOT_OVER:
-                            gameover_text = ""
-                            if doushou.check_over() == GameResult.BLUE_WIN:
-                                gameover_text = "蓝方获胜!"
-                            elif doushou.check_over() == GameResult.RED_WIN:
-                                gameover_text = "红方获胜!"
-                            else:
-                                gameover_text = "平局!"
-                            gameover_text = pygame.font.Font(
-                                "assets/simhei.ttf", 48
-                            ).render(gameover_text, True, (255, 0, 0))
-                            game_over = True
-
-                doushou.draw_board()
-                doushou.draw_turn_text(font)
-                doushou.draw_chesses()
-                if game_over is True:
-                    # 一局游戏结束
-                    doushou._chessboard.blit(
-                        gameover_text,
-                        (
-                            round(SCREEN_SIZE[0] / 2 - gameover_text.get_width() / 2),
-                            round(SCREEN_SIZE[1] / 2 - gameover_text.get_height() / 2 - button_text.get_height() - 10),
-                        ),
-                    )
-                    button_text = button_font.render("再来一局", True, text_color)
-                    show_start_menu = True
+            if show_start_menu is True:
+                # 绘制按钮
+                pygame.draw.rect(doushou._chessboard, button_color, button_rect, border_radius=10)
+                doushou._chessboard.blit(
+                    button_text,
+                    (
+                        round(SCREEN_SIZE[0] / 2 - button_text.get_width() / 2),
+                        round(SCREEN_SIZE[1] / 2 - button_text.get_height() / 2),
+                    ),
+                )
                 screen.blit(doushou._chessboard, (0, 0))
-        pygame.display.update()
+
+                # 监听事件
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        pygame.quit()
+                        sys.exit()
+                    if event.type == pygame.MOUSEBUTTONDOWN:
+                        if button_rect.collidepoint(event.pos):
+                            # 在这里执行点击开始游戏按钮后的操作
+                            doushou = Doushou()
+                            if is_in_room is False:
+                                rooms = client1.get_rooms()
+                                if not has_empty_room(rooms):
+                                    client1.create_room("XXX's room")
+                                else:
+                                    for room in rooms:
+                                        try:
+                                            if room["nb_players"] < room["capacity"]:
+                                                client1.join_room(room["id"])
+                                                print("加入现有房间成功")
+                                                break
+                                        except Exception as e:
+                                            print(f"加入房间失败，错误信息：", repr(e))
+                                            time.sleep(0.5)
+                                rooms = client1.get_rooms()
+                                for room in rooms:
+                                    if room["id"] == client1.room_id:
+                                        if room["nb_players"] == 2:
+                                            # 后进房，已满员，后手
+                                            my_turn = False
+                                        else:
+                                            while not is_my_room_ready(client1):
+                                                time.sleep(0.5)
+                                                print("等待对手")
+                                            print("对手已到位，开始对局")
+                                is_in_room = True
+
+                            show_start_menu = False
+                            game_over = False
+            else:
+                if my_turn is False and game_over is False:
+                    # 若不是本人回合,查看对手操作
+                    messages = client1.get_messages()
+                    if len(messages) != 0:
+                        for message in messages:
+                            last_message = json.loads(message)
+                            sender, message_value = last_message.popitem()
+                            doushou.click_at(message_value["i"], message_value["j"])
+
+                            doushou.draw_board()
+                            doushou.draw_turn_text(font)
+                            doushou.draw_chesses()
+                            if message_value["gameover_text"] != "":
+                                # 一局游戏结束
+                                gameover_text = gameover_font.render(message_value["gameover_text"], True, (255, 0, 0))
+                                doushou._chessboard.blit(
+                                    gameover_text,
+                                    (
+                                        round(
+                                            SCREEN_SIZE[0] / 2
+                                            - gameover_text.get_width() / 2
+                                        ),
+                                        round(
+                                            SCREEN_SIZE[1] / 2
+                                            - gameover_text.get_height() / 2
+                                            - button_text.get_height()
+                                            - 10
+                                        ),
+                                    ),
+                                )
+                                button_text = button_font.render("再来一局", True, text_color)
+                                show_start_menu = True
+                            screen.blit(doushou._chessboard, (0, 0))
+                            if message_value["switch"] == "True":
+                                my_turn = True
+                else:
+                    for event in pygame.event.get():
+                        if event.type == pygame.QUIT:
+                            pygame.quit()
+                            sys.exit()
+                        if not game_over and event.type == pygame.MOUSEBUTTONDOWN:
+                            if event.button == 1:  # 按下的是鼠标左键
+                                i, j = doushou.get_coord(event.pos)
+                                old_turn = doushou.blue_turn
+                                doushou.click_at(i, j)
+                                val_to_send = {
+                                    "i": i,
+                                    "j": j,
+                                    "switch": "True" if old_turn != doushou.blue_turn else "",
+                                    "gameover_text": "",
+                                }
+                                if doushou.check_over() != GameResult.NOT_OVER:
+                                    gameover_text = ""
+                                    if doushou.check_over() == GameResult.BLUE_WIN:
+                                        gameover_text = "蓝方获胜!"
+                                    elif doushou.check_over() == GameResult.RED_WIN:
+                                        gameover_text = "红方获胜!"
+                                    else:
+                                        gameover_text = "平局!"
+                                    val_to_send["gameover_text"] = gameover_text
+                                    gameover_text = gameover_font.render(gameover_text, True, (255, 0, 0))
+                                    game_over = True
+                                else:
+                                    my_turn = False
+                                client1.send(val_to_send)
+
+                        doushou.draw_board()
+                        doushou.draw_turn_text(font)
+                        doushou.draw_chesses()
+                        if game_over is True:
+                            # 一局游戏结束
+                            doushou._chessboard.blit(
+                                gameover_text,
+                                (
+                                    round(SCREEN_SIZE[0] / 2 - gameover_text.get_width() / 2),
+                                    round(SCREEN_SIZE[1] / 2 - gameover_text.get_height() / 2 - button_text.get_height() - 10),
+                                ),
+                            )
+                            button_text = button_font.render("再来一局", True, text_color)
+                            show_start_menu = True
+                        screen.blit(doushou._chessboard, (0, 0))
+            pygame.display.update()
+    except:
+        client1.leave_room()
 
 
 main()

@@ -31,18 +31,18 @@ def main_loop(tcp_port, udp_port, rooms):
         if cmd == "list":
             print("Rooms :")
             for room_id, room in rooms.rooms.items():
-                print("%s - %s (%d/%d)" % (room.identifier,
-                                           room.name,
-                                           len(room.players),
-                                           room.capacity))
+                print(
+                    "%s - %s (%d/%d)"
+                    % (room.identifier, room.name, len(room.players), room.capacity)
+                )
         elif cmd.startswith("room "):
             try:
                 id = cmd[5:]
                 room = rooms.rooms[id]
-                print("%s - %s (%d/%d)" % (room.identifier,
-                                           room.name,
-                                           len(room.players),
-                                           room.capacity))
+                print(
+                    "%s - %s (%d/%d)"
+                    % (room.identifier, room.name, len(room.players), room.capacity)
+                )
                 print("Players :")
                 for player in room.players:
                     print(player.identifier)
@@ -51,9 +51,10 @@ def main_loop(tcp_port, udp_port, rooms):
         elif cmd.startswith("user "):
             try:
                 player = rooms.players[cmd[5:]]
-                print("%s : %s:%d" % (player.identifier,
-                                      player.udp_addr[0],
-                                      player.udp_addr[1]))
+                print(
+                    "%s : %s:%d"
+                    % (player.identifier, player.udp_addr[0], player.udp_addr[1])
+                )
             except:
                 print("Error while getting user informations")
         elif cmd == "quit":
@@ -82,8 +83,7 @@ class UdpServer(Thread):
         """
         Start udp server
         """
-        self.sock = socket.socket(socket.AF_INET,
-                                  socket.SOCK_DGRAM)
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.bind(("0.0.0.0", self.udp_port))
         self.sock.setblocking(0)
         self.sock.settimeout(5)
@@ -96,22 +96,22 @@ class UdpServer(Thread):
             try:
                 data = json.loads(data)
                 try:
-                    identifier = data['identifier']
+                    identifier = data["identifier"]
                 except KeyError:
                     identifier = None
 
                 try:
-                    room_id = data['room_id']
+                    room_id = data["room_id"]
                 except KeyError:
                     room_id = None
 
                 try:
-                    payload = data['payload']
+                    payload = data["payload"]
                 except KeyError:
                     payload = None
 
                 try:
-                    action = data['action']
+                    action = data["action"]
                 except KeyError:
                     action = None
 
@@ -122,19 +122,20 @@ class UdpServer(Thread):
                     try:
                         if action == "send":
                             try:
-                                self.rooms.send(identifier,
-                                                room_id,
-                                                payload['message'],
-                                                self.sock)
+                                self.rooms.send(
+                                    identifier, room_id, payload["message"], self.sock
+                                )
                             except:
                                 pass
                         elif action == "sendto":
                             try:
-                                self.rooms.sendto(identifier,
-                                                  room_id,
-                                                  payload['recipients'],
-                                                  payload['message'],
-                                                  self.sock)
+                                self.rooms.sendto(
+                                    identifier,
+                                    room_id,
+                                    payload["recipients"],
+                                    payload["message"],
+                                    self.sock,
+                                )
                             except:
                                 pass
                     finally:
@@ -172,9 +173,8 @@ class TcpServer(Thread):
         """
         Start tcp server
         """
-        self.sock = socket.socket(socket.AF_INET,
-                                  socket.SOCK_STREAM)
-        self.sock.bind(('0.0.0.0', self.tcp_port))
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.sock.bind(("0.0.0.0", self.tcp_port))
         self.sock.setblocking(0)
         self.sock.settimeout(5)
         time_reference = time.time()
@@ -194,32 +194,27 @@ class TcpServer(Thread):
             data = conn.recv(1024)
             try:
                 data = json.loads(data)
-                action = data['action']
+                action = data["action"]
                 identifier = None
                 try:
-                    identifier = data['identifier']
+                    identifier = data["identifier"]
                 except KeyError:
                     pass  # Silently pass
 
                 room_id = None
                 try:
-                    room_id = data['room_id']
+                    room_id = data["room_id"]
                 except KeyError:
                     pass  # Silently pass
 
                 payload = None
                 try:
-                    payload = data['payload']
+                    payload = data["payload"]
                 except KeyError:
                     pass  # Silently pass
                 self.lock.acquire()
                 try:
-                    self.route(conn,
-                               addr,
-                               action,
-                               payload,
-                               identifier,
-                               room_id)
+                    self.route(conn, addr, action, payload, identifier, room_id)
                 finally:
                     self.lock.release()
             except KeyError:
@@ -233,13 +228,7 @@ class TcpServer(Thread):
 
         self.stop()
 
-    def route(self,
-              sock,
-              addr,
-              action,
-              payload,
-              identifier=None,
-              room_id=None):
+    def route(self, sock, addr, action, payload, identifier=None, room_id=None):
         """
         Route received data for processing
         """
@@ -250,8 +239,12 @@ class TcpServer(Thread):
 
         if identifier is not None:
             if identifier not in self.rooms.players.keys():
-                print("Unknown identifier %s for %s:%s" % (identifier, addr[0], addr[1]))
-                sock.send(self.msg % {"success": "False", "message": "Unknown identifier"})
+                print(
+                    "Unknown identifier %s for %s:%s" % (identifier, addr[0], addr[1])
+                )
+                sock.send(
+                    self.msg % {"success": "False", "message": "Unknown identifier"}
+                )
                 return 0
 
             # Get client object
@@ -273,16 +266,20 @@ class TcpServer(Thread):
             elif action == "get_rooms":
                 rooms = []
                 for id_room, room in self.rooms.rooms.items():
-                    rooms.append({"id": id_room,
-                                  "name": room.name,
-                                  "nb_players": len(room.players),
-                                  "capacity": room.capacity})
+                    rooms.append(
+                        {
+                            "id": id_room,
+                            "name": room.name,
+                            "nb_players": len(room.players),
+                            "capacity": room.capacity,
+                        }
+                    )
                 client.send_tcp(True, rooms, sock)
             elif action == "create":
                 room_identifier = self.rooms.create(payload)
                 self.rooms.join(client.identifier, room_identifier)
                 client.send_tcp(True, room_identifier, sock)
-            elif action == 'leave':
+            elif action == "leave":
                 try:
                     if room_id not in self.rooms.rooms:
                         raise RoomNotFound()
@@ -293,8 +290,9 @@ class TcpServer(Thread):
                 except NotInRoom:
                     client.send_tcp(False, room_id, sock)
             else:
-                sock.send_tcp(self.msg % {"success": "False",
-                                          "message": "You must register"})
+                sock.send_tcp(
+                    self.msg % {"success": "False", "message": "You must register"}
+                )
 
     def stop(self):
         """
@@ -307,19 +305,16 @@ if __name__ == "__main__":
     """
     Start a game server
     """
-    parser = argparse.ArgumentParser(description='Simple game server')
-    parser.add_argument('--tcpport',
-                        dest='tcp_port',
-                        help='Listening tcp port',
-                        default="1234")
-    parser.add_argument('--udpport',
-                        dest='udp_port',
-                        help='Listening udp port',
-                        default="1234")
-    parser.add_argument('--capacity',
-                        dest='room_capacity',
-                        help='Max players per room',
-                        default="3")
+    parser = argparse.ArgumentParser(description="Simple game server")
+    parser.add_argument(
+        "--tcpport", dest="tcp_port", help="Listening tcp port", default="12344"
+    )
+    parser.add_argument(
+        "--udpport", dest="udp_port", help="Listening udp port", default="12344"
+    )
+    parser.add_argument(
+        "--capacity", dest="room_capacity", help="Max players per room", default="3"
+    )
 
     args = parser.parse_args()
     rooms = Rooms(int(args.room_capacity))
