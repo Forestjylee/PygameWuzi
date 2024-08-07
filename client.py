@@ -198,9 +198,9 @@ if __name__ == "__main__":
     Example with 3 clients
     """
     #  Register on server
-    client1 = Client("127.0.0.1", 12344, 12344, 1235)
-    client2 = Client("127.0.0.1", 12344, 12344, 1236)
-    client3 = Client("127.0.0.1", 12344, 12344, 1237)
+    client1 = Client("127.0.0.1", 12344, 12344, 12355)
+    client2 = Client("127.0.0.1", 12344, 12344, 12366)
+    client3 = Client("127.0.0.1", 12344, 12344, 12377)
 
     print("Client 1 : %s" % client1.identifier)
     print("Client 2 : %s" % client2.identifier)
@@ -227,7 +227,7 @@ if __name__ == "__main__":
 
     #  Join client 1 room
     try:
-        client2.join_room(selected_room)
+        client2.autojoin()
         client3.autojoin()
     except Exception as e:
         print("Error : %s" % str(e))
@@ -235,18 +235,20 @@ if __name__ == "__main__":
     print("Client 2 join %s" % client2.room_id)
     print("Client 3 join %s" % client3.room_id)
 
-    #  Send message to room (any serializable data)
-    client1.send({"name": "John D.", "message": "I'm just John Doe..."})
-    client2.sendto(
-        client1.identifier,
-        {"name": "Linus T.", "message": "My name is Linus, and I am your God."},
-    )
-    client3.send({"name": "Richard S.", "message": "I love emacs"})
+    for i in range(3):
+        #  Send message to room (any serializable data)
+        client1.send({"name": "John D.", "message": "I'm just John Doe..."})
+        client2.sendto(
+            client1.identifier,
+            {"name": "Linus T.", "message": "My name is Linus, and I am your God."},
+        )
+        client3.send({"name": "Richard S.", "message": "I love emacs"})
 
-    # get server data (only client 3)
-    message = client1.get_messages()
-    if len(message) != 0:
-        for message in message:
-            message = json.loads(message)
-            sender, value = message.popitem()
-            print("%s say %s" % (value["name"], value["message"]))
+        # get server data (only client 3)
+        messages = client1.get_messages()
+        print(len(messages))
+        if len(messages) != 0:
+            for message in messages:
+                mess = json.loads(message)
+                sender, value = mess.popitem()
+                print("%s say %s" % (value["name"], value["message"]))
