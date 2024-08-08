@@ -227,7 +227,7 @@ if __name__ == "__main__":
 
     #  Join client 1 room
     try:
-        client2.autojoin()
+        # client2.autojoin()
         client3.autojoin()
     except Exception as e:
         print("Error : %s" % str(e))
@@ -235,14 +235,14 @@ if __name__ == "__main__":
     print("Client 2 join %s" % client2.room_id)
     print("Client 3 join %s" % client3.room_id)
 
-    for i in range(3):
+    for i in range(4):
         #  Send message to room (any serializable data)
         client1.send({"name": "John D.", "message": "I'm just John Doe..."})
-        client2.sendto(
-            client1.identifier,
-            {"name": "Linus T.", "message": "My name is Linus, and I am your God."},
-        )
-        client3.send({"name": "Richard S.", "message": "I love emacs"})
+        # client2.sendto(
+        #     client1.identifier,
+        #     {"name": "Linus T.", "message": "My name is Linus, and I am your God."},
+        # )
+        client3.send({"name": "Richard S.", "message": f"I love emacs{i}"})
 
         # get server data (only client 3)
         messages = client1.get_messages()
@@ -252,3 +252,4 @@ if __name__ == "__main__":
                 mess = json.loads(message)
                 sender, value = mess.popitem()
                 print("%s say %s" % (value["name"], value["message"]))
+        print("-----------")

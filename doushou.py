@@ -2,6 +2,8 @@ import os
 import sys
 import json
 import time
+import loguru
+from loguru import logger
 import traceback
 from enum import Enum
 import pygame
@@ -21,6 +23,8 @@ SCREEN_SIZE = 610, 650
 CHESS_WIDTH = 100
 CHESS_HEIGHT = 100
 Position = namedtuple("Position", ["x", "y"])
+
+logger.add("log.txt", rotation="1 MB", retention="10 days")
 
 
 class CompareResult(Enum):
@@ -421,7 +425,7 @@ def main():
     # 创建用户端对象
     server_ip = sg.popup_get_text(message="请输入服务器ip", title="", default_text=SERVER_IP)
     client1 = Client(server_ip, 12344, 12344, random.randint(1235, 10000))
-    
+
     pygame.init()
 
     screen = pygame.display.set_mode(SCREEN_SIZE, 0, 32)
@@ -608,10 +612,13 @@ def main():
                     for message in messages:
                         last_message = json.loads(message)
                         sender, message_value = last_message.popitem()
+                        old_turn = doushou.blue_turn
                         doushou.click_at(message_value["i"], message_value["j"])
+                        logger.info(f"对手下子: {message_value['i']}, {message_value['j']} | old_turn: {old_turn}, new_turn: {doushou.blue_turn}")
 
-                        if message_value["switch"] == "True":
+                        if old_turn != doushou.blue_turn:
                             my_turn = True
+                            break
                     for event in pygame.event.get():
                         if event.type == pygame.QUIT:
                             raise Exception
@@ -624,14 +631,16 @@ def main():
                                 i, j = doushou.get_coord(event.pos)
                                 old_turn = doushou.blue_turn
                                 doushou.click_at(i, j)
+                                logger.info(f"本人下子: {i}, {j} | old_turn: {old_turn}, new_turn: {doushou.blue_turn}")
                                 val_to_send = {
                                     "i": i,
                                     "j": j,
-                                    "switch": "True" if old_turn != doushou.blue_turn else "",
                                     "gameover_text": "",
                                 }
-                                if val_to_send["switch"] == "True":
+                                if old_turn != doushou.blue_turn:
                                     my_turn = False
+                                    client1.send(val_to_send)
+                                    break
                                 client1.send(val_to_send)
                 if is_my_room_ready(client1) is False:
                     # 对方退出，重新进入菜单页
