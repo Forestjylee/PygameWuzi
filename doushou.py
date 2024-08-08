@@ -5,6 +5,7 @@ import time
 import traceback
 from enum import Enum
 import pygame
+import PySimpleGUI as sg
 from client import Client
 from collections import namedtuple
 from collections import deque
@@ -417,6 +418,10 @@ def is_my_room_ready(client: Client):
 
 
 def main():
+    # 创建用户端对象
+    server_ip = sg.popup_get_text(message="请输入服务器ip", title="", default_text=SERVER_IP)
+    client1 = Client(server_ip, 12344, 12344, random.randint(1235, 10000))
+    
     pygame.init()
 
     screen = pygame.display.set_mode(SCREEN_SIZE, 0, 32)
@@ -438,9 +443,6 @@ def main():
         bt_height,
     )
     button_color = (205, 136, 75)
-
-    # 创建用户端对象
-    client1 = Client(SERVER_IP, 12344, 12344, random.randint(1235, 10000))
 
     try:
         my_color = ""   # 红或蓝
