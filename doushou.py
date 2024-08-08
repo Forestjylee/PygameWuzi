@@ -2,6 +2,7 @@ import os
 import sys
 import json
 import time
+import traceback
 from enum import Enum
 import pygame
 from client import Client
@@ -442,18 +443,27 @@ def main():
     client1 = Client(SERVER_IP, 12344, 12344, random.randint(1235, 10000))
 
     try:
-        my_color = "蓝"
+        my_color = ""   # 红或蓝
         is_in_room = False
         my_turn = True
         show_start_menu = True
         game_over = False
+        gameover_text = "吃光对面的棋子！"
         doushou = Doushou()
         while True:
             clock.tick(FPS)  # 设置帧率
 
-            if show_start_menu is True:
+            if show_start_menu is True:   # 展示菜单
                 # 绘制按钮
                 pygame.draw.rect(doushou._chessboard, button_color, button_rect, border_radius=10)
+                gameover_suf = gameover_font.render(gameover_text, True, (255, 0, 0))
+                doushou._chessboard.blit(
+                    gameover_suf,
+                    (
+                        round(SCREEN_SIZE[0] / 2 - gameover_suf.get_width() / 2),
+                        round(SCREEN_SIZE[1] / 2 - gameover_suf.get_height() / 2 - button_text.get_height() - 10),
+                    ),
+                )
                 doushou._chessboard.blit(
                     button_text,
                     (
@@ -465,7 +475,7 @@ def main():
                 # 监听事件
                 for event in pygame.event.get():
                     if event.type == pygame.QUIT:
-                        pygame.quit()
+                        raise Exception
                     if event.type == pygame.MOUSEBUTTONDOWN:
                         if button_rect.collidepoint(event.pos):
                             # 在这里执行点击开始游戏按钮后的操作
@@ -487,8 +497,7 @@ def main():
                                 for room in rooms:
                                     if room["id"] == client1.room_id:
                                         if room["nb_players"] == 2:
-                                            # 后进房，已满员，后手
-                                            my_color = "红"
+                                            # 后进房，已满员
                                             flag = False
                                             while 1:
                                                 if flag is True:
@@ -504,9 +513,11 @@ def main():
                                                         break
                                                 for event in pygame.event.get():
                                                     if event.type == pygame.QUIT:
-                                                        client1.leave_room()
-                                                        pygame.quit()  # 这里只是获取事件但不做任何处理，从而实现清空缓冲区的效果
-                                            my_turn = False
+                                                        raise Exception
+                                            if doushou.seed >= 500000:
+                                                my_color = "蓝"
+                                            else:
+                                                my_color = "红"
                                         else:
                                             # 先进房
                                             while not is_my_room_ready(client1):
@@ -531,8 +542,11 @@ def main():
                                                         break
                                                     for event in pygame.event.get():
                                                         if event.type == pygame.QUIT:
-                                                            client1.leave_room()
-                                                            pygame.quit()  # 这里只是获取事件但不做任何处理，从而实现清空缓冲区的效果
+                                                            raise Exception
+                                            if doushou.seed >= 500000:
+                                                my_color = "红"
+                                            else:
+                                                my_color = "蓝"
                                 is_in_room = True
                             else:
                                 # 已在房间内，再来一局逻辑
@@ -552,9 +566,9 @@ def main():
                                                 break
                                             for event in pygame.event.get():
                                                 if event.type == pygame.QUIT:
-                                                    client1.leave_room()
-                                                    pygame.quit()  # 这里只是获取事件但不做任何处理，从而实现清空缓冲区的效果
-                                    my_turn = True
+                                                    raise Exception
+                                    if doushou.seed >= 500000:
+                                        my_color = "红"
                                 else:
                                     flag = False
                                     while 1:
@@ -571,16 +585,21 @@ def main():
                                                 break
                                         for event in pygame.event.get():
                                             if event.type == pygame.QUIT:
-                                                client1.leave_room()
-                                                pygame.quit()  # 这里只是获取事件但不做任何处理，从而实现清空缓冲区的效果
-                                    my_turn = False
+                                                raise Exception
+                                    if doushou.seed >= 500000:
+                                        my_color = "蓝"
+                            if my_color == "蓝":
+                                my_turn = True
+                            else:
+                                my_turn = False
                             doushou.init_new_game()
                             doushou.draw_board()
                             doushou.draw_turn_text(font, my_color)
                             doushou.draw_chesses()
                             show_start_menu = False
                             game_over = False
-            else:
+                            doushou.blue_turn = True
+            else:    # 展示游戏页
                 if my_turn is False and game_over is False:
                     # 若不是本人回合,查看对手操作
                     messages = client1.get_messages()
@@ -591,15 +610,13 @@ def main():
 
                         if message_value["switch"] == "True":
                             my_turn = True
-                        for event in pygame.event.get():
-                            if event.type == pygame.QUIT:
-                                client1.leave_room()
-                                pygame.quit()  # 这里只是获取事件但不做任何处理，从而实现清空缓冲区的效果
+                    for event in pygame.event.get():
+                        if event.type == pygame.QUIT:
+                            raise Exception
                 elif my_turn is True and game_over is False:
                     for event in pygame.event.get():
                         if event.type == pygame.QUIT:
-                            client1.leave_room()
-                            pygame.quit()
+                            raise Exception
                         if event.type == pygame.MOUSEBUTTONDOWN:
                             if event.button == 1:  # 按下的是鼠标左键
                                 i, j = doushou.get_coord(event.pos)
@@ -614,11 +631,15 @@ def main():
                                 if val_to_send["switch"] == "True":
                                     my_turn = False
                                 client1.send(val_to_send)
-
+                if is_my_room_ready(client1) is False:
+                    # 对方退出，重新进入菜单页
+                    client1.leave_room()
+                    is_in_room = False
+                    show_start_menu = True
                 doushou.draw_board()
                 doushou.draw_turn_text(font, my_color)
                 doushou.draw_chesses()
-                if doushou.check_over() != GameResult.NOT_OVER:
+                if doushou.check_over() != GameResult.NOT_OVER or game_over is True:
                     gameover_text = ""
                     if doushou.check_over() == GameResult.BLUE_WIN:
                         gameover_text = "蓝方获胜!"
@@ -626,21 +647,27 @@ def main():
                         gameover_text = "红方获胜!"
                     else:
                         gameover_text = "平局!"
-                    gameover_text = gameover_font.render(gameover_text, True, (255, 0, 0))
-                    game_over = True
-                if game_over is True:
+                    gameover_suf = gameover_font.render(gameover_text, True, (255, 0, 0))
                     # 一局游戏结束
                     doushou._chessboard.blit(
-                        gameover_text,
+                        gameover_suf,
                         (
-                            round(SCREEN_SIZE[0] / 2 - gameover_text.get_width() / 2),
-                            round(SCREEN_SIZE[1] / 2 - gameover_text.get_height() / 2 - button_text.get_height() - 10),
+                            round(SCREEN_SIZE[0] / 2 - gameover_suf.get_width() / 2),
+                            round(
+                                SCREEN_SIZE[1] / 2
+                                - gameover_suf.get_height() / 2
+                                - button_text.get_height()
+                                - 10
+                            ),
                         ),
                     )
                     button_text = button_font.render("再来一局", True, text_color)
+                    game_over = True
                     show_start_menu = True
             screen.blit(doushou._chessboard, (0, 0))
             pygame.display.update()
+    except Exception as e:
+        traceback.print_exc()
     finally:
         try:
             client1.leave_room()
