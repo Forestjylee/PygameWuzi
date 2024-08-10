@@ -62,14 +62,15 @@ class Doushou:
             self._init_points()
 
             # 逻辑棋盘，当前棋子的位置
-            self.__chess_board_logic = []
-            self.__cover_board_logic = []
+            self._chess_board_logic = []
+            self._cover_board_logic = []
 
             self.draw_board()
         except pygame.error as e:
             print(e)
 
     def _init_resources(self):
+        self.loading_filename = "assets/loading.jpg"
         self.background_filename = "assets/bg.png"
         self.chessboard_filename = "assets/chessboard.png"
         self.cover_filename = "assets/cover.png"
@@ -93,10 +94,25 @@ class Doushou:
         self.red_lion_filename = "assets/red_lion.png"
         self.red_elephant_filename = "assets/red_elephant.png"
 
+        # music
+        self._eat_sound = pygame.mixer.Sound("assets/music/eat.mp3")
+        self._be_eatten_sound = pygame.mixer.Sound("assets/music/be_eat.mp3")
+        self._elephant_sound = pygame.mixer.Sound("assets/music/elephant.mp3")
+        self._lion_sound = pygame.mixer.Sound("assets/music/lion.mp3")
+        self._tiger_sound = pygame.mixer.Sound("assets/music/tiger.mp3")
+        self._leopard_sound = pygame.mixer.Sound("assets/music/leopard.mp3")
+        self._wolf_sound = pygame.mixer.Sound("assets/music/wolf.mp3")
+        self._dog_sound = pygame.mixer.Sound("assets/music/dog.mp3")
+        self._cat_sound = pygame.mixer.Sound("assets/music/cat.mp3")
+        self._rat_sound = pygame.mixer.Sound("assets/music/rat.mp3")
+
     def _init_sprites(self):
         def _rescale_sprite(sprite, width=self.chess_width, height=self.chess_height):
             return pygame.transform.scale(sprite, (width, height))
 
+        self._loading = _rescale_sprite(
+            pygame.image.load(self.loading_filename).convert_alpha()
+        )
         self._bg = pygame.image.load(self.background_filename)
         self._origin_chessboard = pygame.image.load(self.chessboard_filename)
         self._origin_chessboard = pygame.transform.scale(self._bg, SCREEN_SIZE)
@@ -179,6 +195,25 @@ class Doushou:
             self._red_lion: 14,
             self._red_elephant: 15,
         }
+        
+        self._animal_music_map = {
+            self._blue_rat: self._rat_sound,
+            self._blue_cat: self._cat_sound,
+            self._blue_dog: self._dog_sound,
+            self._blue_wolf: self._wolf_sound,
+            self._blue_leopard: self._leopard_sound,
+            self._blue_tiger: self._tiger_sound,
+            self._blue_lion: self._lion_sound,
+            self._blue_elephant: self._elephant_sound,
+            self._red_rat: self._rat_sound,
+            self._red_cat: self._cat_sound,
+            self._red_dog: self._dog_sound,
+            self._red_wolf: self._wolf_sound,
+            self._red_leopard: self._leopard_sound,
+            self._red_tiger: self._tiger_sound,
+            self._red_lion: self._lion_sound,
+            self._red_elephant: self._elephant_sound,
+        }
 
     def _init_points(self):
         for i in range(self.lines):
@@ -216,7 +251,7 @@ class Doushou:
             for j in range(self.lines):
                 pos_x = self.points[i][j].x - int(self.chess_width / 2)
                 pos_y = self.points[i][j].y - int(self.chess_height / 2)
-                if self.__cover_board_logic[i][j] is True:  # 未翻开
+                if self._cover_board_logic[i][j] is True:  # 未翻开
                     self._chessboard.blit(self._cover, (pos_x, pos_y))
                 elif (
                     self.focus_pos_logic is not None
@@ -229,34 +264,37 @@ class Doushou:
                         (self.chess_height + 20) / 2
                     )
                     self._chessboard.blit(self._focus_rect, (cover_pos_x, cover_pos_y))
-                    self._chessboard.blit(
-                        self.__chess_board_logic[i][j], (pos_x, pos_y)
-                    )
-                elif self.__chess_board_logic[i][j] is not None:
+                    self._chessboard.blit(self._chess_board_logic[i][j], (pos_x, pos_y))
+                elif self._chess_board_logic[i][j] is not None:
                     # 未选中但有棋子
-                    self._chessboard.blit(
-                        self.__chess_board_logic[i][j], (pos_x, pos_y)
-                    )
+                    self._chessboard.blit(self._chess_board_logic[i][j], (pos_x, pos_y))
 
     def draw_turn_text(self, font_obj: pygame.font.Font, my_color: str):
-        turn_text = font_obj.render(
-            f"您是<{my_color}>方，现在是 <{'蓝' if self.blue_turn else '红'}> 方回合", True, (0, 0, 0)
-        )
+        if (my_color == "蓝" and self.blue_turn is True) or (
+            my_color == "红" and self.blue_turn is False
+        ):
+            text = f"您是<{my_color}>方，现在是您的回合"
+        else:
+            text = f"您是<{my_color}>方，现在是对方的回合"
+        turn_text = font_obj.render(text, True, (0, 0, 0))
         self._chessboard.blit(turn_text, (self.left // 3, self.top // 6))
 
     def init_new_game(self):
         random_animal_positions = [i for i in self.animal_map.keys()]
         random.seed(self.seed)
         random.shuffle(random_animal_positions)
-        self.__chess_board_logic = [[] for i in range(self.lines)]
-        self.__cover_board_logic = [[] for i in range(self.lines)]
+        self._chess_board_logic = [[] for i in range(self.lines)]
+        self._cover_board_logic = [[] for i in range(self.lines)]
+
+        self.focus_pos_logic = None
+        self.blue_turn = True
 
         for i in range(self.lines):
             for j in range(self.lines):
-                self.__chess_board_logic[i].append(
+                self._chess_board_logic[i].append(
                     random_animal_positions[i * self.lines + j]
                 )
-                self.__cover_board_logic[i].append(True)
+                self._cover_board_logic[i].append(True)
 
     # 点击了棋盘(i,j)位置操作
     def click_at(self, i, j):
@@ -264,21 +302,22 @@ class Doushou:
             return
 
         # 翻开棋子
-        if self.__cover_board_logic[i][j] is True:
-            self.__cover_board_logic[i][j] = False
+        if self._cover_board_logic[i][j] is True:
+            self._animal_music_map[self._chess_board_logic[i][j]].play()
+            self._cover_board_logic[i][j] = False
             self.blue_turn = not self.blue_turn  # 切换蓝红方顺序
             self.focus_pos_logic = None
             return
 
         if self.focus_pos_logic is None:
             if (
-                self.__chess_board_logic[i][j] is not None
-                and self.__is_own_chess(self.__chess_board_logic[i][j]) is True
+                self._chess_board_logic[i][j] is not None
+                and self.__is_own_chess(self._chess_board_logic[i][j]) is True
             ):
                 # 如果之前没有选中，现点击了自己的棋子，则选中自己的棋子
                 self.focus_pos_logic = Position(i, j)
         else:  # 如果之前选中了棋子
-            if self.__chess_board_logic[i][j] is None:  # 选择了空地
+            if self._chess_board_logic[i][j] is None:  # 选择了空地
                 if self.focus_pos_logic is not None and (
                     (
                         abs(self.focus_pos_logic.x - i) == 1
@@ -290,17 +329,17 @@ class Doushou:
                     )
                 ):  # 如果是附近的空地
                     # 移动到该位置
-                    self.__chess_board_logic[i][j] = self.__chess_board_logic[
+                    self._chess_board_logic[i][j] = self._chess_board_logic[
                         self.focus_pos_logic.x
                     ][self.focus_pos_logic.y]
-                    self.__chess_board_logic[self.focus_pos_logic.x][
+                    self._chess_board_logic[self.focus_pos_logic.x][
                         self.focus_pos_logic.y
                     ] = None
                     self.focus_pos_logic = None
                     self.blue_turn = not self.blue_turn  # 切换蓝红方顺序
             else:  # 选择了棋子
                 if (
-                    self.__is_own_chess(self.__chess_board_logic[i][j]) is True
+                    self.__is_own_chess(self._chess_board_logic[i][j]) is True
                 ):  # 如果是己方棋子
                     if self.focus_pos_logic.x == i and self.focus_pos_logic.y == j:
                         # 选择同一个棋子，取消聚焦
@@ -316,31 +355,42 @@ class Doushou:
                         abs(self.focus_pos_logic.x - i) == 0
                         and abs(self.focus_pos_logic.y - j) == 1
                     ):  # 如果在附近
-                        focus_chess = self.__chess_board_logic[self.focus_pos_logic.x][
+                        focus_chess = self._chess_board_logic[self.focus_pos_logic.x][
                             self.focus_pos_logic.y
                         ]
                         compare_res = self.compare_chess(
-                            focus_chess, self.__chess_board_logic[i][j]
+                            focus_chess, self._chess_board_logic[i][j]
                         )
                         if compare_res == CompareResult.WIN:
                             # 移动并吃掉对方棋子
-                            self.__chess_board_logic[i][j] = self.__chess_board_logic[
+                            self._animal_music_map[
+                                self._chess_board_logic[self.focus_pos_logic.x][
+                                    self.focus_pos_logic.y
+                                ]
+                            ].play()
+                            self._chess_board_logic[i][j] = self._chess_board_logic[
                                 self.focus_pos_logic.x
                             ][self.focus_pos_logic.y]
-                            self.__chess_board_logic[self.focus_pos_logic.x][
+                            self._chess_board_logic[self.focus_pos_logic.x][
                                 self.focus_pos_logic.y
                             ] = None
                         elif compare_res == CompareResult.EQUAL:
                             # 双方棋子都消失
-                            self.__chess_board_logic[i][j] = None
-                            self.__chess_board_logic[self.focus_pos_logic.x][
+                            self._animal_music_map[
+                                self._chess_board_logic[self.focus_pos_logic.x][
+                                    self.focus_pos_logic.y
+                                ]
+                            ].play()
+                            self._chess_board_logic[i][j] = None
+                            self._chess_board_logic[self.focus_pos_logic.x][
                                 self.focus_pos_logic.y
                             ] = None
                         elif compare_res == CompareResult.LOSE:
                             # 己方棋子消失
-                            self.__chess_board_logic[self.focus_pos_logic.x][
+                            self._chess_board_logic[self.focus_pos_logic.x][
                                 self.focus_pos_logic.y
                             ] = None
+                            self._be_eatten_sound.play()
                         self.focus_pos_logic = None
                         self.blue_turn = not self.blue_turn  # 切换蓝红方顺序
 
@@ -383,14 +433,18 @@ class Doushou:
     def check_over(self):
         blue_chess_amount = 0
         red_chess_amount = 0
+        max_blue_chess = -1
+        max_red_chess = -1
         for i in range(self.lines):
             for j in range(self.lines):
-                if self.__chess_board_logic[i][j] is None:
+                if self._chess_board_logic[i][j] is None:
                     continue
-                if self.animal_map[self.__chess_board_logic[i][j]] < 8:
+                if self.animal_map[self._chess_board_logic[i][j]] < 8:
                     blue_chess_amount += 1
+                    max_blue_chess = max(max_blue_chess, self.animal_map[self._chess_board_logic[i][j]])
                 else:
                     red_chess_amount += 1
+                    max_red_chess = max(max_red_chess, self.animal_map[self._chess_board_logic[i][j]]-8)
 
         if blue_chess_amount == 0 and red_chess_amount == 0:
             return GameResult.DRAW
@@ -398,6 +452,13 @@ class Doushou:
             return GameResult.RED_WIN
         elif blue_chess_amount >= 0 and red_chess_amount == 0:
             return GameResult.BLUE_WIN
+        elif blue_chess_amount == 1 and red_chess_amount == 1:
+            if max_blue_chess == max_red_chess:
+                return GameResult.DRAW
+            elif max_blue_chess > max_red_chess:
+                return GameResult.BLUE_WIN
+            else:
+                return GameResult.RED_WIN
         else:
             return GameResult.NOT_OVER
 
@@ -421,12 +482,30 @@ def is_my_room_ready(client: Client):
             return room["nb_players"] == room["capacity"]
 
 
+def render_screen(doushou: Doushou, turn_font: pygame.font.Font, my_color: str):
+    doushou.draw_board()
+    doushou.draw_turn_text(turn_font, my_color)
+    doushou.draw_chesses()
+
+
 def main():
     # 创建用户端对象
-    server_ip = sg.popup_get_text(message="请输入服务器ip", title="", default_text=SERVER_IP)
+    server_ip = sg.popup_get_text(
+        message="请输入服务器ip", title="", default_text=SERVER_IP
+    )
+    if server_ip is None:
+        os._exit(1)
     client1 = Client(server_ip, 12344, 12344, random.randint(1235, 10000))
 
     pygame.init()
+
+    # 音乐
+    pygame.mixer.init()
+    menu_music_filepath = "assets/music/menu.mp3"
+    gameing_music_filepath = "assets/music/gameing.mp3"
+    pygame.mixer.music.set_volume(0.6)
+    pygame.mixer.music.load(menu_music_filepath)
+    pygame.mixer.music.play(-1)
 
     screen = pygame.display.set_mode(SCREEN_SIZE, 0, 32)
     pygame.display.set_caption("斗兽棋")
@@ -439,7 +518,7 @@ def main():
     text_color = (0, 0, 0)
     button_font = pygame.font.Font("assets/simhei.ttf", 60)
     button_text = button_font.render("开始游戏", True, text_color)
-    bt_width, bt_height = button_text.get_width()+25, button_text.get_height()+15
+    bt_width, bt_height = button_text.get_width() + 25, button_text.get_height() + 15
     button_rect = pygame.Rect(
         round(SCREEN_SIZE[0] / 2 - bt_width / 2),
         round(SCREEN_SIZE[1] / 2 - bt_height / 2),
@@ -449,7 +528,7 @@ def main():
     button_color = (205, 136, 75)
 
     try:
-        my_color = ""   # 红或蓝
+        my_color = ""  # 红或蓝
         is_in_room = False
         my_turn = True
         show_start_menu = True
@@ -459,15 +538,24 @@ def main():
         while True:
             clock.tick(FPS)  # 设置帧率
 
-            if show_start_menu is True:   # 展示菜单
+            if show_start_menu is True:  # 展示菜单
+                # 播放音乐
+
                 # 绘制按钮
-                pygame.draw.rect(doushou._chessboard, button_color, button_rect, border_radius=10)
+                pygame.draw.rect(
+                    doushou._chessboard, button_color, button_rect, border_radius=10
+                )
                 gameover_suf = gameover_font.render(gameover_text, True, (255, 0, 0))
                 doushou._chessboard.blit(
                     gameover_suf,
                     (
                         round(SCREEN_SIZE[0] / 2 - gameover_suf.get_width() / 2),
-                        round(SCREEN_SIZE[1] / 2 - gameover_suf.get_height() / 2 - button_text.get_height() - 10),
+                        round(
+                            SCREEN_SIZE[1] / 2
+                            - gameover_suf.get_height() / 2
+                            - button_text.get_height()
+                            - 13
+                        ),
                     ),
                 )
                 doushou._chessboard.blit(
@@ -511,9 +599,16 @@ def main():
                                                 messages = client1.get_messages()
                                                 for message in messages:
                                                     last_message = json.loads(message)
-                                                    sender, message_value = last_message.popitem()
-                                                    if message_value.get("seed") is not None:
-                                                        doushou.seed = message_value["seed"]
+                                                    sender, message_value = (
+                                                        last_message.popitem()
+                                                    )
+                                                    if (
+                                                        message_value.get("seed")
+                                                        is not None
+                                                    ):
+                                                        doushou.seed = message_value[
+                                                            "seed"
+                                                        ]
                                                         flag = True
                                                         client1.send({"ready": "True"})
                                                         break
@@ -527,12 +622,34 @@ def main():
                                         else:
                                             # 先进房
                                             while not is_my_room_ready(client1):
-                                                time.sleep(0.2)
-                                                print("等待对手")
+                                                clock.tick(FPS)  # 设置帧率
+                                                gameover_suf = gameover_font.render(
+                                                    "搜索对手中...", True, (255, 0, 0)
+                                                )
+                                                doushou.draw_board()
+                                                doushou._chessboard.blit(
+                                                    gameover_suf,
+                                                    (
+                                                        round(
+                                                            SCREEN_SIZE[0] / 2
+                                                            - gameover_suf.get_width()
+                                                            / 2
+                                                        ),
+                                                        round(
+                                                            SCREEN_SIZE[1] / 2
+                                                            - gameover_suf.get_height()
+                                                            / 2
+                                                            - button_text.get_height()
+                                                            - 13
+                                                        ),
+                                                    ),
+                                                )
                                                 for event in pygame.event.get():
                                                     if event.type == pygame.QUIT:
                                                         client1.leave_room()
                                                         pygame.quit()  # 这里只是获取事件但不做任何处理，从而实现清空缓冲区的效果
+                                                screen.blit(doushou._chessboard, (0, 0))
+                                                pygame.display.update()
                                             print("对手已到位，开始对局")
                                             client1.send({"seed": doushou.seed})
                                             flag = False
@@ -542,8 +659,13 @@ def main():
                                                 messages = client1.get_messages()
                                                 for message in messages:
                                                     last_message = json.loads(message)
-                                                    sender, message_value = last_message.popitem()
-                                                    if message_value.get("ready") is not None:
+                                                    sender, message_value = (
+                                                        last_message.popitem()
+                                                    )
+                                                    if (
+                                                        message_value.get("ready")
+                                                        is not None
+                                                    ):
                                                         flag = True
                                                         break
                                                     for event in pygame.event.get():
@@ -566,13 +688,15 @@ def main():
                                         messages = client1.get_messages()
                                         for message in messages:
                                             last_message = json.loads(message)
-                                            sender, message_value = last_message.popitem()
+                                            sender, message_value = (
+                                                last_message.popitem()
+                                            )
                                             if message_value.get("ready") is not None:
                                                 flag = True
                                                 break
-                                            for event in pygame.event.get():
-                                                if event.type == pygame.QUIT:
-                                                    raise Exception
+                                        for event in pygame.event.get():
+                                            if event.type == pygame.QUIT:
+                                                raise Exception
                                     if doushou.seed >= 500000:
                                         my_color = "红"
                                 else:
@@ -583,7 +707,9 @@ def main():
                                         messages = client1.get_messages()
                                         for message in messages:
                                             last_message = json.loads(message)
-                                            sender, message_value = last_message.popitem()
+                                            sender, message_value = (
+                                                last_message.popitem()
+                                            )
                                             if message_value.get("seed") is not None:
                                                 doushou.seed = message_value["seed"]
                                                 flag = True
@@ -599,26 +725,41 @@ def main():
                             else:
                                 my_turn = False
                             doushou.init_new_game()
-                            doushou.draw_board()
-                            doushou.draw_turn_text(font, my_color)
-                            doushou.draw_chesses()
+                            render_screen(doushou, font, my_color)
                             show_start_menu = False
                             game_over = False
-                            doushou.blue_turn = True
-            else:    # 展示游戏页
+                            # 播放游戏音乐
+                            pygame.mixer.music.stop()
+                            pygame.mixer.music.load(gameing_music_filepath)
+                            pygame.mixer.music.play(-1)
+            else:  # 展示游戏页
                 if my_turn is False and game_over is False:
                     # 若不是本人回合,查看对手操作
                     messages = client1.get_messages()
                     for message in messages:
                         last_message = json.loads(message)
                         sender, message_value = last_message.popitem()
-                        old_turn = doushou.blue_turn
-                        doushou.click_at(message_value["i"], message_value["j"])
-                        logger.info(f"对手下子: {message_value['i']}, {message_value['j']} | old_turn: {old_turn}, new_turn: {doushou.blue_turn}")
-
-                        if old_turn != doushou.blue_turn:
-                            my_turn = True
-                            break
+                        i, j, old_focus_i, old_focus_j = (
+                            message_value["i"],
+                            message_value["j"],
+                            message_value["old_focus_i"],
+                            message_value["old_focus_j"],
+                        )
+                        # 模拟对手下棋，避免网络消息乱序导致程序错乱
+                        if doushou._cover_board_logic[i][j] is True:
+                            doushou.click_at(i, j)
+                            logger.info(f"对方点击: {i}, {j}")
+                        else:
+                            # 模拟对手点击两次的效果
+                            doushou.click_at(old_focus_i, old_focus_j)
+                            render_screen(doushou, font, my_color)
+                            screen.blit(doushou._chessboard, (0, 0))
+                            pygame.display.update()
+                            time.sleep(0.7)
+                            doushou.click_at(i, j)
+                            logger.info(f"对方点击: {old_focus_i}, {old_focus_j}")
+                            logger.info(f"对方点击: {i}, {j}")
+                        my_turn = True
                     for event in pygame.event.get():
                         if event.type == pygame.QUIT:
                             raise Exception
@@ -630,35 +771,54 @@ def main():
                             if event.button == 1:  # 按下的是鼠标左键
                                 i, j = doushou.get_coord(event.pos)
                                 old_turn = doushou.blue_turn
+                                old_focus_pos = doushou.focus_pos_logic
                                 doushou.click_at(i, j)
-                                logger.info(f"本人下子: {i}, {j} | old_turn: {old_turn}, new_turn: {doushou.blue_turn}")
-                                val_to_send = {
-                                    "i": i,
-                                    "j": j,
-                                    "gameover_text": "",
-                                }
+                                logger.info(
+                                    f"本人点击: {i}, {j} | old_turn: {old_turn}, new_turn: {doushou.blue_turn}"
+                                )
                                 if old_turn != doushou.blue_turn:
+                                    # 出现控制权翻转才发送消息
                                     my_turn = False
+                                    val_to_send = {
+                                        "i": i,
+                                        "j": j,
+                                        "old_focus_i": (
+                                            old_focus_pos.x
+                                            if old_focus_pos is not None
+                                            else ""
+                                        ),
+                                        "old_focus_j": (
+                                            old_focus_pos.y
+                                            if old_focus_pos is not None
+                                            else ""
+                                        ),
+                                        "gameover_text": "",
+                                    }
                                     client1.send(val_to_send)
                                     break
-                                client1.send(val_to_send)
                 if is_my_room_ready(client1) is False:
                     # 对方退出，重新进入菜单页
                     client1.leave_room()
                     is_in_room = False
                     show_start_menu = True
-                doushou.draw_board()
-                doushou.draw_turn_text(font, my_color)
-                doushou.draw_chesses()
+                render_screen(doushou, font, my_color)
                 if doushou.check_over() != GameResult.NOT_OVER or game_over is True:
                     gameover_text = ""
                     if doushou.check_over() == GameResult.BLUE_WIN:
-                        gameover_text = "蓝方获胜!"
+                        if my_color == "蓝":
+                            gameover_text = "耶！你赢了！"
+                        else:
+                            gameover_text = "哎呀！就差一点了！"
                     elif doushou.check_over() == GameResult.RED_WIN:
-                        gameover_text = "红方获胜!"
+                        if my_color == "红":
+                            gameover_text = "耶！你赢了！"
+                        else:
+                            gameover_text = "哎呀！就差一点了！"
                     else:
                         gameover_text = "平局!"
-                    gameover_suf = gameover_font.render(gameover_text, True, (255, 0, 0))
+                    gameover_suf = gameover_font.render(
+                        gameover_text, True, (255, 0, 0)
+                    )
                     # 一局游戏结束
                     doushou._chessboard.blit(
                         gameover_suf,
@@ -668,13 +828,16 @@ def main():
                                 SCREEN_SIZE[1] / 2
                                 - gameover_suf.get_height() / 2
                                 - button_text.get_height()
-                                - 10
+                                - 13
                             ),
                         ),
                     )
                     button_text = button_font.render("再来一局", True, text_color)
                     game_over = True
                     show_start_menu = True
+                    pygame.mixer.music.stop()
+                    pygame.mixer.music.load(menu_music_filepath)
+                    pygame.mixer.music.play(-1)
             screen.blit(doushou._chessboard, (0, 0))
             pygame.display.update()
     except Exception as e:
